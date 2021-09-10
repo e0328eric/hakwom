@@ -1,0 +1,368 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%    Exam Package for plainTeX
+%    Run this only with LuaTeX
+%    Author : Sungbae Jeong (Almagest)
+%    Release Date : 21/01/19
+%    Version : 3.00
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Check whether the engine is luatex
+% If not, then panic it
+\expandafter\ifx\csname luatexversion\endcsname\else
+\errmessage{Use LuaTeX to compile this pacage}
+\fi
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%  Importing Packages  %
+%%%%%%%%%%%%%%%%%%%%%%%%
+\input luaotfload.sty
+\input kotexplain
+\input ams-math
+\input eplain
+\input opmac
+\input tikz
+\usetikzlibrary{intersections,calc,arrows.meta,matrix}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%    Starting Implementation
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\catcode`@=11
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%  Define Basic Fonts  %
+%%%%%%%%%%%%%%%%%%%%%%%%
+\font\smallmathtext=cmsy7 at 3.5pt
+\newfam\smallfam \textfont\smallfam=\smallmathtext \scriptfont\smallfam=\smallmathtext
+\scriptscriptfont\smallfam=\smallmathtext
+\def\smallmath{\fam\smallfam}
+\font\tenamsb=msbm10 \font\sevenamsb=msbm7 \font\fiveamsb=msbm5
+\newfam\bbfam \textfont\bbfam=\tenamsb \scriptfont\bbfam=\sevenamsb \scriptscriptfont\bbfam=\fiveamsb
+\def\bbb{\fam\bbfam}
+\let\scr=\script
+
+\hangulpunctuations=0
+\hangulfont="Noto Serif KR" at 10pt
+\hanjafont="Noto Serif KR" at 10pt
+\font\titlefont="Noto Sans KR Bold" at 21pt
+\font\titlewarningfont="Noto Sans KR Bold" at 18pt
+\font\subtitlefont="Noto Sans KR Bold" at 15pt
+\font\titleexplainfont="Noto Sans KR" at 10pt
+\font\mainfont="Noto Serif KR" at 10pt
+\font\headfont="Noto Sans KR Bold" at 10pt
+\font\footfont="Noto Sans KR Bold" at 10pt
+\font\boldfont="Noto Serif KR Bold" at 10pt
+\font\sansfont="Noto Sans KR" at 10pt
+\font\bsansfont="Noto Sans KR Bold" at 10pt
+\font\explainfont="Noto Serif KR" at 8.5pt
+\font\expempfont="Noto Serif KR Bold" at 8.5pt
+
+\let\oldbf\bf
+\def\bf{\oldbf\boldfont}
+\def\sf{\sansfont}
+\def\bsf{\bsansfont}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Defining Basic Commands and Variables  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Define Image relative code inside Luatex
+\let\pdfximage\saveimageresource
+\let\pdflastximage\lastsavedimageresourceindex
+\let\pdflastximagepages\lastsavedimageresourcepages
+\let\pdfrefximage\useimageresource
+
+% Total Score constant in lua code
+\directlua{scorecnt = 0}
+
+% Constants (Include Boolean)
+\newtoks\maintitle \newtoks\subtitle
+\newcount\timelimit
+\newread\sc@reread \newwrite\sc@rewrite
+\newif\ifish@mew@rk \newif\ifsubpr@blemused \newif\ifanswershown \newif\ifansdisplaysh@on
+\newbox\titleb@x \newbox\leftb@x \newbox\headb@xeven \newbox\headb@xodd
+\newdimen\@vsize \newdimen\@hsize
+\newcount\questi@ncnt \newcount\subquesti@ncnt
+\let\showanswer=\answershowntrue
+
+% Boxed
+\def\boxit#1#2#3{\vbox{\hrule height#1\hbox to\hsize{\vrule width#1\kern#2pt\hss\vbox{\vskip#2pt #3 \vskip#2pt}%
+\hss\kern#2pt\vrule width#1}\hrule height#1}}
+
+% Question and Score Command
+\outer\def\question{\ifsubpr@blemused \subquesti@ncnt=0\fi
+\subpr@blemusedfalse
+\par\vfill\global\advance\questi@ncnt by 1{\bf\the\questi@ncnt.}\enskip\ignorespaces}
+\outer\def\subquestion{\ifsubpr@blemused\par\vfill\else\par\vskip5pt\fi
+\subpr@blemusedtrue
+\global\advance\subquesti@ncnt by 1{(\the\subquesti@ncnt)}\enskip\ignorespaces}
+\outer\def\score#1;{{\directlua{scorecnt = scorecnt + #1}
+\unskip\nobreak\hfil\penalty50\hskip2em\hbox{}\nobreak\hfil[#1점]
+\parfillskip=0pt \finalhyphendemerits=0 \par}}
+\outer\def\Score#1;{{\unskip\nobreak\hfil\penalty50\hskip2em\hbox{}\nobreak\hfil[#1점]
+\parfillskip=0pt \finalhyphendemerits=0 \par}}
+
+\outer\def\beginfigure{\par\vskip5pt\hbox to\hsize\bgroup\hss}
+\outer\def\endfigure{\hss\egroup}
+
+\let\q=\question
+\let\sq=\subquestion
+
+% ExplainBox
+\def\beginexplain{\par\vskip5pt\hbox to\hsize\bgroup\hss
+\vbox\bgroup\hsize=.9\hsize\hrule\hbox\bgroup\vrule\kern5pt\vbox\bgroup\kern5pt}
+\def\endexplain{\par\kern5pt\egroup\kern5pt\vrule\egroup\hrule\egroup\hss\egroup}
+\let\explain\beginexplain
+
+% Numbering
+\def\cn#1{\ifnum #1<1
+\hbox{\ooalign{$\mathchar"020D$\cr\hidewidth\lower.1ex\hbox{$?$}\hidewidth\cr}}
+\else\ifnum #1<10
+\hbox{\ooalign{$\mathchar"020D$\cr\hidewidth\lower.1ex\hbox{$#1$}\hidewidth\cr}}
+\else
+\hbox{\ooalign{$\mathchar"020D$\cr\hidewidth\lower.1ex\hbox{$?$}\hidewidth\cr}}
+\fi\fi}
+\let\binomial=\choose
+\outer\def\choose#1{\par\nobreak\kern5pt\nobreak\vbox{\halign to\hsize{&\tabskip=0pt\relax
+\cn{##}\kern3pt&##\hfil\tabskip=0pt plus1fil\crcr#1\crcr}}}
+\outer\def\mchoose#1{\par\nobreak\kern5pt\nobreak\vbox{\halign to\hsize{&\tabskip=0pt\relax
+\cn{##}\kern3pt&$##$\hfil\tabskip=0pt plus1fil\crcr#1\crcr}}}
+\outer\def\dchoose#1{\par\nobreak\kern5pt\nobreak\vbox{\halign to\hsize{&\tabskip=0pt\relax
+\cn{##}\kern3pt&$\displaystyle##$\hfil\tabskip=0pt plus1fil\crcr#1\crcr}}}
+
+% Korean Itemize
+\def\koenum#1{\ifcase#1 (???)\or%
+(가)\or(나)\or(다)\or(라)\or(마)\or(바)\or(사)\or(아)\or%
+(자)\or(차)\or(카)\or(타)\or(파)\or(하)\else(???)\fi\enskip\ignorespaces}
+
+%%%%%%%%%%%%%%%%%%%%%
+%  Defining Colors  %
+%%%%%%%%%%%%%%%%%%%%%
+\protected\def\pdfcolorstack{\pdfextension colorstack}
+\def\pdfcolorstackinit{\pdffeedback colorstackinit}
+\mathchardef\colorcnt=\pdfcolorstackinit page {0 g 0 G}
+\def\colorpop{\pdfcolorstack\colorcnt pop}
+\def\colorpush#1{\pdfcolorstack\colorcnt push {#1 k #1 K}}
+\def\colorset#1{\pdfcolorstack\colorcnt set {#1 k #1 K}}
+\def\answercolor{\colorpush{0 1 1 0}\aftergroup\colorpop}
+\def\answer#1{\ifanswershown\par\null\hfill{\answercolor\bf Ans : #1}\fi}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Defining Math Related Commands  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Math Floating Point Command
+\def\fr#1{\begingroup
+\setbox0=\hbox{#1}
+\advance\dimen0 by \ht0
+\advance\dimen0 by .6pt
+\ooalign{\raise\dimen0\hbox to\wd0{\hss$\mathchar"0B0F$\hss}\cr$#1$\cr}
+\endgroup}
+\let\emptyset\varnothing
+
+% Sets
+\def\ALPHABETList{A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z}
+\for\ALPHABET:=\ALPHABETList\do{%
+    \expandafter\xdef\csname\ALPHABET f\endcsname{{\frak\ALPHABET}}
+    \expandafter\xdef\csname\ALPHABET c\endcsname{{\cal\ALPHABET}}
+    \expandafter\xdef\csname\ALPHABET b\endcsname{{\bbb\ALPHABET}}
+    \expandafter\xdef\csname\ALPHABET s\endcsname{{\scr\ALPHABET}}
+}
+\let\N=\Nb \let\Z=\Zb \let\Q=\Qb \let\R=\Rb \let\C=\Cb
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%  Switch of type of the exam  %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newif\iftwocols
+
+% Default exam type is twocols
+\twocolstrue
+
+\let\onecol\twocolsfalse
+\let\twocol\twocolstrue
+\let\twocols\twocolstrue
+
+\outer\def\loadexam{%
+}
+
+\outer\def\beginexam{%
+\openin\sc@reread=\jobname.tdt\relax
+\ifeof\sc@reread
+\let\t@talsc@re\relax
+\let\t@talpagecnt=0
+\else
+\read\sc@reread to\t@talsc@re
+\read\sc@reread to\t@talpagecnt
+\fi
+\closein\sc@reread
+\iftwocols
+    \def\breakcolumn{\vfill\eject}
+    \def\nextq{\vfill\eject\hbox to\hsize{}\vfill\eject}
+    \let\bc\breakcolumn
+    % PageNumber
+    \def\pagenum{\tikz{%
+    \path (11.5pt,15.3pt) node {\the\pageno};
+    \path (34.5pt,7.67pt) node {\t@talpagecnt};
+    \draw[thick] (0,0) rectangle (46pt,23pt);
+    \draw[thick] (0,0) -- (46pt,23pt);
+    }}
+    \let\leftright=L \@vsize=\vsize \@hsize=1.1\hsize \hsize=\@hsize
+    \advance\hsize by -21pt \divide\hsize by 2
+    \let\pdfpagewidth=\pagewidth
+    \let\pdfpageheight=\pageheight
+    \pdfpagewidth=210truemm \pdfpageheight=297truemm % A4 Paper size
+    \edef\pdfhorigin{\pdfvariable horigin}
+    \pdfhorigin=\pdfpagewidth \advance\pdfhorigin by -\@hsize \divide\pdfhorigin by 2
+    \let\homework=\ish@mew@rktrue
+    \let\showanswer=\answershowntrue
+    \parindent=0pt \baselineskip=13pt plus1ex minus1ex
+    \lineskip=3pt \lineskiplimit=3pt
+    \@beginexamtwocols
+\else
+    \def\nextq{\vfill\eject}
+    % Constants (Include Boolean)
+    \pagewidth=210truemm \pageheight=297truemm % A4 Paper size
+    \edef\pdfhorigin{\pdfvariable horigin}
+    \edef\pdfvorigin{\pdfvariable vorigin}
+    \hsize=\pagewidth \vsize=\pageheight
+    \advance\hsize by -4truecm
+    \advance\vsize by -6truecm
+    \pdfhorigin=2truecm \pdfvorigin=3truecm
+    \parindent=0pt \baselineskip=13pt plus1ex minus1ex
+    \lineskip=3pt \lineskiplimit=3pt
+    \@beginexamonecol
+\fi
+}
+
+\outer\def\endexam{%
+\iftwocols
+    \def\breakcolumn{\vfill\eject}
+    \def\nextq{\vfill\eject\hbox to\hsize{}\vfill\eject}
+    \let\bc\breakcolumn
+    \@endexamtwocols
+\else
+    \def\nextq{\vfill\eject}
+    \@endexamonecol
+\fi
+\openout\sc@rewrite=\jobname.tdt
+\write\sc@rewrite{\directlua{tex.sprint(scorecnt)}}
+\write\sc@rewrite{\the\pageno}
+\closeout\sc@rewrite}
+
+\def\@beginexamonecol{\mainfont
+\nopagenumbers
+\hbox{}
+\vskip 0pt plus 1filll
+\centerline{\titlefont\the\maintitle}
+\vskip 0.5pc
+\centerline{\subtitlefont\the\subtitle}
+\vskip 2pc
+\boxit{1pt}9{\hbox to0.95\hsize{\bsf 성명: \hss}}
+\vskip 5pt
+\boxit{1pt}9{%
+    \hbox to\hsize{\hss\vbox{%
+    \hbox to0.85\hsize{\hskip 0pt plus 1fil\vbox{\titleexplainfont
+        \kern 1em
+        \baselineskip=7mm plus 1em minus 1em
+        \hbox{$\bullet$ 총점은 {\bsf\t@talsc@re\ignorespaces 점}이며, 제한시간은 {\bsf\the\timelimit 분}입니다.}
+        \hbox{$\bullet$ 시험지는 표지 제외 총 {\bsf\t@talpagecnt 페이지}입니다.}
+        \hbox{$\bullet$ 증명이 아닌 정답이 있는 문제는 정답을 {\bsf 알아볼 수 있게} 표시하시오.}
+        \hbox{$\bullet$ 풀이과정은 각 문제 밑에 서술형으로 쓰시면 됩니다.}
+        \hbox{$\bullet$ 풀이과정은 {\bsf 정자로} 쓰십시오. 그렇지 않을 경우, 불이익이 있을 수 있습니다.}
+        \hbox{$\bullet$ 풀이과정을 쓸 때에 {\bsf 여백이 부족}할 경우, 감독관에게 여분의 종이를 요구할 수 있습니다.}
+        \hbox{$\bullet$ {\bsf 컨닝} 혹은 {\bsf 분위기를 흐리는 자}는 성적이 {\bsf 0점}처리 됩니다.}
+        \kern 1em
+    }\hskip 0pt plus 3fil}}\hss}
+}
+\vskip 5pt
+\begingroup
+\spaceskip=1em plus 1ex minus 1ex
+\boxit{1pt}9{%
+\hbox to0.95\hsize{\hss\titlewarningfont \# 시험이 시작되기 전 까지 페이지를 넘기지 마시오 \#\hss}
+}
+\endgroup
+\vskip 0pt plus 1filll
+\eject
+\hbox{}
+\vfill
+\eject
+\advance\pageno by -2
+\output={
+    \footline={\bsf\hfil\folio\ / \t@talpagecnt\hfil}
+    \ifnum\pageno=1
+    \shipout\vbox{%
+        \hbox{}
+        \vskip-2cm
+        \centerline{\titlefont\the\maintitle}
+        \vskip 0.5pc
+        \centerline{\subtitlefont\the\subtitle}
+        \vskip 1pc
+        \hrule height1.5pt
+        \vskip 1pc plus -1fill
+        \box255
+        \makefootline
+    }
+    \else\ifodd\pageno
+    \headline{\hfil\vbox{\hbox to\hsize{\the\maintitle\hfil\the\subtitle}\kern1ex\hrule height1pt}\hfil}
+    \else
+    \headline{\hfil\vbox{\hbox to\hsize{\the\subtitle\hfil\the\maintitle}\kern1ex\hrule height1pt}\hfil}
+    \fi
+    \shipout\vbox{\makeheadline\pagebody\makefootline}
+    \fi
+    \advancepageno
+    \ifnum\outputpenalty>-20000\else\dosupereject\fi
+}
+}
+
+\def\@beginexamtwocols{\mainfont
+\ifish@mew@rk
+\setbox0=\hbox to\@hsize{\headfont 성명 : \leaders\hrule\hskip2.5cm\hfil}
+\else
+\setbox0=\hbox to\@hsize{\headfont 성명 : \leaders\hrule\hskip2.5cm\hfil
+\vbox{\halign{&\hfil\headfont##\cr 총점 : \t@talsc@re\unskip 점\cr 제한 시간 : \the\timelimit 분\cr}}}
+\fi
+\ht0=0pt
+\setbox\titleb@x=\hbox to\@hsize{\hfil\vbox{\halign{&\hfil##\hfil\cr
+\titlefont\the\maintitle\cr\headfont\the\subtitle\cr}}\hfil}
+\setbox\headb@xeven=\hbox to\@hsize{{\headfont\the\maintitle}\hfil{\headfont\the\subtitle}}
+\setbox\headb@xodd=\hbox to\@hsize{{\headfont\the\subtitle}\hfil{\headfont\the\maintitle}}
+
+\output={\if L\leftright
+\global\setbox\leftb@x=\box255
+\global\let\leftright=R
+\else
+\shipout\vbox{\offinterlineskip
+\ifnum\count0=1 \box\titleb@x\box0
+\else\ifodd\count0\copy\headb@xodd\else\copy\headb@xeven\fi\fi
+\kern0.65pc\hrule height1pt\kern0.65pc
+\hbox to\@hsize{\hss\box\leftb@x\kern10pt\vrule width1pt\kern10pt\box255\hss}
+\bigskip\hbox to\@hsize{\hss\pagenum\hss}\vss}
+\global\let\leftright=L
+\advancepageno\fi}}
+\outer\def\answersheet{\if L\leftright
+\vfill\breakcolumn\null\vfill\eject
+\else
+\vfill\eject\fi
+\advance\count0 by -1
+\output={}
+}
+
+\def\@endexamonecol{%
+\nextq
+\advance\pageno by -1
+\output={\shipout\box255}
+\ifodd\pageno\else\hbox{}\nextq\fi
+\hbox{}
+\vskip 0pt plus 1filll
+\begingroup
+\spaceskip=1em plus 1ex minus 1ex
+\boxit{1pt}9{%
+\hbox to0.95\hsize{\hss\titlewarningfont \# 시험이 시작되기 전 까지 페이지를 넘기지 마시오 \#\hss}
+}
+\endgroup
+\vskip 0pt plus 1filll}
+\def\@endexamtwocols{\relax}
+
+\catcode`@=12
+\message{Exam Class : Version 2.00}
