@@ -1,2 +1,2 @@
-# hakwom
+# hakwon
 KGI hakwon exam PlainLuaTeX template
